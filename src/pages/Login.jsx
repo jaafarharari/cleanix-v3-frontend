@@ -17,7 +17,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      navigate(user.role === 'admin' ? '/dashboard' : '/cleaner');
+      navigate(user.role === 'super_admin' ? '/super' : user.role === 'admin' ? '/dashboard' : '/cleaner');
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
