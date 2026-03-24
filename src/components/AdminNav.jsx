@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
-import { LayoutDashboard, Briefcase, Home, Users, Activity, AlertTriangle, Download, Calendar, LogOut, Sparkles, Bell } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Home, Users, Activity, AlertTriangle, Download, Calendar, LogOut, Sparkles, Bell, BarChart3 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/team', label: 'Team', icon: Users },
   { path: '/shifts', label: 'Shifts', icon: Calendar },
   { path: '/issues', label: 'Issues', icon: AlertTriangle },
+  { path: '/reports', label: 'Reports', icon: BarChart3 },
   { path: '/pms', label: 'PMS', icon: Download },
 ];
 

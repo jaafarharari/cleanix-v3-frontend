@@ -8,6 +8,7 @@ export default function TeamManagement() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
 
@@ -29,12 +30,13 @@ export default function TeamManagement() {
   };
 
   const handleInvite = async () => {
-    if (!inviteEmail) return;
+    if (!inviteEmail || !inviteName) return;
     setInviting(true);
     try {
-      const result = await api.users.inviteUser(inviteEmail, 'user');
+      const result = await api.users.inviteUser(inviteEmail, 'user', inviteName);
       setInviteResult({ type: 'success', message: `Invited! Temp password: ${result.temp_password}` });
       setInviteEmail('');
+      setInviteName('');
     } catch (e) {
       setInviteResult({ type: 'error', message: e.message || 'Invite failed' });
     }
@@ -55,10 +57,14 @@ export default function TeamManagement() {
           <p className="font-semibold text-white mb-3 flex items-center gap-2">
             <UserPlus className="w-4 h-4 text-accent" /> Invite Cleaner
           </p>
-          <div className="flex gap-3">
-            <input type="email" className="input-dark flex-1" placeholder="cleaner@email.com" value={inviteEmail}
-              onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleInvite()} />
-            <button className="btn-primary" onClick={handleInvite} disabled={!inviteEmail || inviting}>
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <input type="text" className="input-dark flex-1" placeholder="Full name" value={inviteName}
+                onChange={e => setInviteName(e.target.value)} />
+              <input type="email" className="input-dark flex-1" placeholder="cleaner@email.com" value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleInvite()} />
+            </div>
+            <button className="btn-primary w-full" onClick={handleInvite} disabled={!inviteEmail || !inviteName || inviting}>
               {inviting ? 'Sending...' : 'Invite'}
             </button>
           </div>

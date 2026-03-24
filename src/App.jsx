@@ -20,6 +20,7 @@ import MaintenanceIssues from './pages/admin/MaintenanceIssues';
 import LiveOpsBoard from './pages/admin/LiveOpsBoard';
 import ShiftManagement from './pages/admin/ShiftManagement';
 import PMSImport from './pages/admin/PMSImport';
+import AdminReports from './pages/admin/AdminReports';
 
 // Cleaner
 import CleanerHome from './pages/cleaner/CleanerHome';
@@ -65,6 +66,7 @@ const AuthenticatedApp = () => {
       <Route path="/live-ops" element={<LiveOpsBoard />} />
       <Route path="/shifts" element={<ShiftManagement />} />
       <Route path="/pms" element={<PMSImport />} />
+      <Route path="/reports" element={<AdminReports />} />
 
       {/* Cleaner */}
       <Route path="/cleaner" element={<CleanerHome />} />

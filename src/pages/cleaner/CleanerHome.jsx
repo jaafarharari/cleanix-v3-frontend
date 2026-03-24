@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
 import { Link, useNavigate } from 'react-router-dom';
-import { RefreshCw, Clock, AlertCircle, Home, LogOut, Sparkles, Bell, Flag } from 'lucide-react';
+import { RefreshCw, Clock, AlertCircle, Home, LogOut, Sparkles, Bell, Flag, Lock } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { useAuth } from '@/lib/AuthContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -51,6 +51,7 @@ export default function CleanerHome() {
           {isSupported && !isSubscribed && (
             <button className="btn-ghost p-2" onClick={subscribe}><Bell className="w-4 h-4" /></button>
           )}
+          <Link to="/change-password"><button className="btn-ghost p-2"><Lock className="w-4 h-4" /></button></Link>
           <button className="btn-ghost p-2" onClick={fetchJobs}><RefreshCw className="w-4 h-4" /></button>
           <button className="btn-ghost p-2" onClick={logout}><LogOut className="w-4 h-4" /></button>
         </div>
