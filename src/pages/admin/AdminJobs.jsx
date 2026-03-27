@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Clock, X, Check, Loader2 } from 'lucide-react';
+import { Plus, Clock, X, Check, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import AdminNav from '@/components/AdminNav';
 
@@ -24,10 +24,7 @@ export default function AdminJobs() {
       api.entities.Property.list(),
       api.entities.User.list(),
     ]).then(([j, p, u]) => {
-      setJobs(j);
-      setProperties(p);
-      setCleaners(u.filter(x => x.role === 'user'));
-      setLoading(false);
+      setJobs(j); setProperties(p); setCleaners(u.filter(x => x.role === 'user')); setLoading(false);
     });
   }, []);
 
@@ -45,9 +42,11 @@ export default function AdminJobs() {
   const handleCreate = async () => {
     const prop = properties.find(p => p.id === form.property_id);
     const checklist = (prop?.checklist_template || []).map(task => ({ task, completed: false, completed_at: null }));
+    const checkout_checklist = (prop?.checkout_checklist_template || []).map(task => ({ task, completed: false }));
     const status = form.cleaner_email ? 'assigned' : 'pending';
     const created = await api.entities.Job.create({
-      ...form, guest_count: form.guest_count ? parseInt(form.guest_count) : null, checklist, status,
+      ...form, guest_count: form.guest_count ? parseInt(form.guest_count) : null,
+      checklist, checkout_checklist, status,
       status_history: [{ status, timestamp: new Date().toISOString(), changed_by: 'admin' }],
     });
     setJobs(prev => [created, ...prev]);
@@ -82,6 +81,7 @@ export default function AdminJobs() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-white">{job.property_name}</p>
                     <span className={`badge ${statusBadge[job.status]}`}>{job.status.replace('_', ' ')}</span>
+                    {job.checkout_flags?.length > 0 && <span className="badge badge-open text-[10px]">{job.checkout_flags.length} flagged</span>}
                   </div>
                   <p className="text-sm text-dark-400">{job.city} · {job.scheduled_date}</p>
                 </div>
@@ -115,14 +115,8 @@ export default function AdminJobs() {
                 <input type="date" className="input-dark w-full" value={form.scheduled_date} onChange={e => setForm({ ...form, scheduled_date: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm text-dark-400 block mb-1.5">Check-out</label>
-                  <input type="time" className="input-dark w-full" value={form.checkout_time} onChange={e => setForm({ ...form, checkout_time: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm text-dark-400 block mb-1.5">Check-in</label>
-                  <input type="time" className="input-dark w-full" value={form.checkin_time} onChange={e => setForm({ ...form, checkin_time: e.target.value })} />
-                </div>
+                <div><label className="text-sm text-dark-400 block mb-1.5">Check-out</label><input type="time" className="input-dark w-full" value={form.checkout_time} onChange={e => setForm({ ...form, checkout_time: e.target.value })} /></div>
+                <div><label className="text-sm text-dark-400 block mb-1.5">Check-in</label><input type="time" className="input-dark w-full" value={form.checkin_time} onChange={e => setForm({ ...form, checkin_time: e.target.value })} /></div>
               </div>
               <div>
                 <label className="text-sm text-dark-400 block mb-1.5">Assign Cleaner</label>
@@ -132,18 +126,8 @@ export default function AdminJobs() {
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm text-dark-400 block mb-1.5">Source</label>
-                  <select className="input-dark w-full" value={form.booking_source} onChange={e => setForm({ ...form, booking_source: e.target.value })}>
-                    <option value="Airbnb">Airbnb</option>
-                    <option value="Booking.com">Booking.com</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm text-dark-400 block mb-1.5">Guests</label>
-                  <input type="number" className="input-dark w-full" value={form.guest_count} onChange={e => setForm({ ...form, guest_count: e.target.value })} />
-                </div>
+                <div><label className="text-sm text-dark-400 block mb-1.5">Source</label><select className="input-dark w-full" value={form.booking_source} onChange={e => setForm({ ...form, booking_source: e.target.value })}><option value="Airbnb">Airbnb</option><option value="Booking.com">Booking.com</option><option value="Other">Other</option></select></div>
+                <div><label className="text-sm text-dark-400 block mb-1.5">Guests</label><input type="number" className="input-dark w-full" value={form.guest_count} onChange={e => setForm({ ...form, guest_count: e.target.value })} /></div>
               </div>
               <input className="input-dark w-full" placeholder="Host notes for cleaner" value={form.host_notes} onChange={e => setForm({ ...form, host_notes: e.target.value })} />
               <div className="flex gap-3 pt-2">
