@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
-import { Plus, Home, MapPin, Edit2, Trash2, X, Check, Loader2, ClipboardCheck } from 'lucide-react';
+import { Plus, Home, MapPin, Edit2, Trash2, X, Check, Loader2, ClipboardCheck, CheckSquare, Square } from 'lucide-react';
 import AdminNav from '@/components/AdminNav';
 
 const emptyForm = { name: '', address: '', city: '', latitude: '', longitude: '', host_notes: '', checklist_template: [], checkout_checklist_template: [] };
@@ -13,6 +13,9 @@ export default function Properties() {
   const [newTask, setNewTask] = useState('');
   const [newCheckoutTask, setNewCheckoutTask] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.entities.Property.list().then(data => { setProperties(data); setLoading(false); });
@@ -40,9 +43,31 @@ export default function Properties() {
 
   const addTask = () => { if (!newTask.trim()) return; setForm(f => ({ ...f, checklist_template: [...(f.checklist_template || []), newTask.trim()] })); setNewTask(''); };
   const removeTask = (i) => { setForm(f => ({ ...f, checklist_template: f.checklist_template.filter((_, idx) => idx !== i) })); };
-
   const addCheckoutTask = () => { if (!newCheckoutTask.trim()) return; setForm(f => ({ ...f, checkout_checklist_template: [...(f.checkout_checklist_template || []), newCheckoutTask.trim()] })); setNewCheckoutTask(''); };
   const removeCheckoutTask = (i) => { setForm(f => ({ ...f, checkout_checklist_template: f.checkout_checklist_template.filter((_, idx) => idx !== i) })); };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+
+  const selectAll = () => {
+    if (selected.size === properties.length) setSelected(new Set());
+    else setSelected(new Set(properties.map(p => p.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    setDeleting(true);
+    for (const id of selected) {
+      try { await api.entities.Property.delete(id); } catch {}
+    }
+    setProperties(prev => prev.filter(p => !selected.has(p.id)));
+    setSelected(new Set());
+    setSelectMode(false);
+    setDeleting(false);
+  };
+
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
 
   return (
     <div className="min-h-screen bg-dark-900">
@@ -53,9 +78,32 @@ export default function Properties() {
             <Home className="w-5 h-5 text-accent" />
             <h1 className="text-xl font-bold text-white">Properties</h1>
           </div>
-          <button className="btn-primary text-sm flex items-center gap-1.5" onClick={openCreate}>
-            <Plus className="w-4 h-4" /> Add Property
-          </button>
+          <div className="flex items-center gap-2">
+            {selectMode ? (
+              <>
+                <button className="btn-ghost text-sm border border-dark-700 flex items-center gap-1.5" onClick={selectAll}>
+                  {selected.size === properties.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                  {selected.size === properties.length ? 'Deselect all' : 'Select all'}
+                </button>
+                <button className="btn-danger text-sm flex items-center gap-1.5" onClick={handleBulkDelete} disabled={selected.size === 0 || deleting}>
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  Delete {selected.size > 0 ? `(${selected.size})` : ''}
+                </button>
+                <button className="btn-ghost text-sm border border-dark-700" onClick={exitSelectMode}>Cancel</button>
+              </>
+            ) : (
+              <>
+                {properties.length > 0 && (
+                  <button className="btn-ghost text-sm border border-dark-700 flex items-center gap-1.5" onClick={() => setSelectMode(true)}>
+                    <CheckSquare className="w-4 h-4" /> Select
+                  </button>
+                )}
+                <button className="btn-primary text-sm flex items-center gap-1.5" onClick={openCreate}>
+                  <Plus className="w-4 h-4" /> Add Property
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -68,20 +116,34 @@ export default function Properties() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {properties.map(p => (
-              <div key={p.id} className="card-hover p-5 animate-slide-up">
+              <div key={p.id}
+                className={`card-hover p-5 animate-slide-up ${selected.has(p.id) ? 'border-accent/40 glow-accent' : ''}`}
+                onClick={selectMode ? () => toggleSelect(p.id) : undefined}
+              >
                 <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-white">{p.name}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3 text-dark-500" />
-                      <p className="text-sm text-dark-400">{p.address}</p>
+                  <div className="flex items-start gap-3">
+                    {selectMode && (
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
+                        selected.has(p.id) ? 'bg-accent border-accent' : 'border-dark-600'
+                      }`}>
+                        {selected.has(p.id) && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-semibold text-white">{p.name}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3 text-dark-500" />
+                        <p className="text-sm text-dark-400">{p.address}</p>
+                      </div>
+                      <span className="badge bg-dark-700 text-dark-300 border border-dark-600 mt-2">{p.city}</span>
                     </div>
-                    <span className="badge bg-dark-700 text-dark-300 border border-dark-600 mt-2">{p.city}</span>
                   </div>
-                  <div className="flex gap-1">
-                    <button className="btn-ghost p-2" onClick={() => openEdit(p)}><Edit2 className="w-4 h-4" /></button>
-                    <button className="btn-ghost p-2 text-danger" onClick={() => handleDelete(p.id)}><Trash2 className="w-4 h-4" /></button>
-                  </div>
+                  {!selectMode && (
+                    <div className="flex gap-1">
+                      <button className="btn-ghost p-2" onClick={() => openEdit(p)}><Edit2 className="w-4 h-4" /></button>
+                      <button className="btn-ghost p-2 text-danger" onClick={() => handleDelete(p.id)}><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-3 mt-2">
                   {p.checklist_template?.length > 0 && <p className="text-xs text-dark-500">{p.checklist_template.length} cleaning tasks</p>}
@@ -110,10 +172,9 @@ export default function Properties() {
               </div>
               <textarea className="input-dark w-full resize-none" placeholder="Host notes for cleaners" value={form.host_notes} onChange={e => setForm({ ...form, host_notes: e.target.value })} rows={3} />
 
-              {/* Cleaning checklist */}
               <div>
                 <p className="text-sm font-medium text-dark-300 mb-2">Cleaning checklist</p>
-                <p className="text-xs text-dark-500 mb-2">Tasks the cleaner completes during the clean</p>
+                <p className="text-xs text-dark-500 mb-2">Tasks completed during the clean</p>
                 <div className="space-y-2 mb-2">
                   {(form.checklist_template || []).map((task, i) => (
                     <div key={i} className="flex items-center gap-2 bg-dark-700 rounded-lg px-3 py-2 text-sm text-dark-200">
@@ -128,12 +189,11 @@ export default function Properties() {
                 </div>
               </div>
 
-              {/* Checkout checklist */}
               <div className="border-t border-dark-700 pt-4">
                 <p className="text-sm font-medium text-warning mb-2 flex items-center gap-1.5">
                   <ClipboardCheck className="w-4 h-4" /> Checkout checklist
                 </p>
-                <p className="text-xs text-dark-500 mb-2">Items the cleaner must verify before clocking out. Unchecked items get flagged for the next visit.</p>
+                <p className="text-xs text-dark-500 mb-2">Items verified before clocking out. Unchecked items get flagged.</p>
                 <div className="space-y-2 mb-2">
                   {(form.checkout_checklist_template || []).map((task, i) => (
                     <div key={i} className="flex items-center gap-2 bg-warning/5 border border-warning/10 rounded-lg px-3 py-2 text-sm text-dark-200">

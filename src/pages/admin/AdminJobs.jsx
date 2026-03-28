@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Clock, X, Check, Loader2 } from 'lucide-react';
+import { Plus, Clock, X, Check, Loader2, Trash2, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 import AdminNav from '@/components/AdminNav';
 
@@ -16,6 +16,9 @@ export default function AdminJobs() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,10 +55,42 @@ export default function AdminJobs() {
     setJobs(prev => [created, ...prev]);
     setShowForm(false);
     setForm(emptyForm);
-
     if (form.cleaner_email) {
       api.notifications.send([form.cleaner_email], 'New Job Assigned', `You have a new cleaning job at ${form.property_name} on ${form.scheduled_date}`, '/cleaner').catch(() => {});
     }
+  };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === jobs.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(jobs.map(j => j.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    setDeleting(true);
+    for (const id of selected) {
+      try { await api.entities.Job.delete(id); } catch {}
+    }
+    setJobs(prev => prev.filter(j => !selected.has(j.id)));
+    setSelected(new Set());
+    setSelectMode(false);
+    setDeleting(false);
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
   };
 
   return (
@@ -64,9 +99,32 @@ export default function AdminJobs() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-white">Jobs</h1>
-          <button className="btn-primary text-sm flex items-center gap-1.5" onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4" /> New Job
-          </button>
+          <div className="flex items-center gap-2">
+            {selectMode ? (
+              <>
+                <button className="btn-ghost text-sm border border-dark-700 flex items-center gap-1.5" onClick={selectAll}>
+                  {selected.size === jobs.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                  {selected.size === jobs.length ? 'Deselect all' : 'Select all'}
+                </button>
+                <button className="btn-danger text-sm flex items-center gap-1.5" onClick={handleBulkDelete} disabled={selected.size === 0 || deleting}>
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  Delete {selected.size > 0 ? `(${selected.size})` : ''}
+                </button>
+                <button className="btn-ghost text-sm border border-dark-700" onClick={exitSelectMode}>Cancel</button>
+              </>
+            ) : (
+              <>
+                {jobs.length > 0 && (
+                  <button className="btn-ghost text-sm border border-dark-700 flex items-center gap-1.5" onClick={() => setSelectMode(true)}>
+                    <CheckSquare className="w-4 h-4" /> Select
+                  </button>
+                )}
+                <button className="btn-primary text-sm flex items-center gap-1.5" onClick={() => setShowForm(true)}>
+                  <Plus className="w-4 h-4" /> New Job
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -76,7 +134,17 @@ export default function AdminJobs() {
         ) : (
           <div className="space-y-3">
             {jobs.map(job => (
-              <div key={job.id} className="card-hover p-4 flex items-center gap-4 cursor-pointer" onClick={() => navigate(`/job?id=${job.id}`)}>
+              <div key={job.id}
+                className={`card-hover p-4 flex items-center gap-4 cursor-pointer ${selected.has(job.id) ? 'border-accent/40 glow-accent' : ''}`}
+                onClick={() => selectMode ? toggleSelect(job.id) : navigate(`/job?id=${job.id}`)}
+              >
+                {selectMode && (
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    selected.has(job.id) ? 'bg-accent border-accent' : 'border-dark-600'
+                  }`}>
+                    {selected.has(job.id) && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-white">{job.property_name}</p>
