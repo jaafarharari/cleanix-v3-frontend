@@ -21,7 +21,7 @@ const PROVIDERS = [
 async function fetchUplistingProperties(apiKey) {
   const raw = await api.pms.uplisting(apiKey, '/properties');
   const list = Array.isArray(raw) ? raw : (raw?.data || raw?.properties || Object.values(raw).find(v => Array.isArray(v)) || []);
-  return list.map(p => p.attributes ? { id: p.id, name: p.attributes.name || p.attributes.nickname, city: p.attributes.address?.city || '' } : { id: p.id, name: p.name || `Property ${p.id}`, city: p.city || '' });
+  return list.map(p => p.attributes ? { id: p.id, name: p.attributes.nickname || p.attributes.name, address: p.attributes.address ? [p.attributes.address.street, p.attributes.address.city].filter(Boolean).join(', ') : '', city: p.attributes.address?.city || '' } : { id: p.id, name: p.nickname || p.name || `Property ${p.id}`, address: p.address || '', city: p.city || '' });
 }
 
 async function fetchUplistingBookings(apiKey, properties) {
