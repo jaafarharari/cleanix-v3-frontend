@@ -6,6 +6,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -16,7 +17,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, rememberMe);
       navigate(user.role === 'super_admin' ? '/super' : user.role === 'admin' ? '/dashboard' : '/cleaner');
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -63,6 +64,25 @@ export default function Login() {
                 required
                 className="input-dark w-full"
               />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setRememberMe(!rememberMe)}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                  rememberMe ? 'bg-accent border-accent' : 'border-dark-600 hover:border-dark-500'
+                }`}
+              >
+                {rememberMe && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+              <span className="text-sm text-dark-400 cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
+                Remember me for 2 days
+              </span>
             </div>
 
             {error && (
