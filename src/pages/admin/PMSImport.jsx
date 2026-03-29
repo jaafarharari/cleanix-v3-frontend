@@ -26,7 +26,7 @@ async function fetchUplistingProperties(apiKey) {
 
 async function fetchUplistingBookings(apiKey, properties) {
   const today = new Date().toISOString().split('T')[0];
-  const future = new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0];
+  const future = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
   const arrays = await Promise.all(properties.map(async p => {
     try { const raw = await api.pms.uplisting(apiKey, `/bookings/${p.id}?from=${today}&to=${future}`); return (Array.isArray(raw) ? raw : (raw?.bookings || raw?.data || [])).map(b => ({ ...b, _pms_prop_id: String(p.id) })); }
     catch { return []; }
@@ -43,7 +43,7 @@ async function fetchSmoobuProperties(apiKey) {
 
 async function fetchSmoobuBookings(apiKey) {
   const today = new Date().toISOString().split('T')[0];
-  const future = new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0];
+  const future = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
   const raw = await api.pms.smoobu(apiKey, `/reservations?from=${today}&to=${future}&pageSize=100`);
   return raw?.bookings || raw?.reservations || (Array.isArray(raw) ? raw : []);
 }
@@ -155,7 +155,11 @@ export default function PMSImport() {
         if (!propRecord) continue;
         const date = manualProvider === 'uplisting' ? b.check_out : (b.departure || b.check_out);
         if (!date) continue;
-        if (existingJobs.some(j => j.property_id === propRecord.id && j.scheduled_date === date)) { jobsSkipped++; continue; }
+        const bookingId = String(b.id || b.reservationId || '');
+        if (existingJobs.some(j =>
+          (bookingId && j.pms_booking_id === bookingId) ||
+          (j.property_id === propRecord.id && j.scheduled_date === date && j.checkout_time === (b.departure_time || ''))
+            )) { jobsSkipped++; continue; }
         await api.entities.Job.create({
           property_id: propRecord.id, property_name: propRecord.name, city: propRecord.city, status: 'pending', scheduled_date: date,
           checkout_time: b.departure_time || '', checkin_time: b.arrival_time || '',
@@ -163,6 +167,7 @@ export default function PMSImport() {
           guest_count: b.number_of_guests || (b.adults ? b.adults + (b.children || 0) : null),
           checklist: (propRecord.checklist_template || []).map(t => ({ task: t, completed: false })),
           status_history: [{ status: 'pending', timestamp: new Date().toISOString(), changed_by: 'manual_import' }],
+          pms_booking_id: String(b.id || b.reservationId || ''),
         });
         jobsCreated++;
       }

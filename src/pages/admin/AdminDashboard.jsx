@@ -95,13 +95,18 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Today's Jobs</h2>
-          <Link to="/jobs">
-            <button className="btn-primary text-sm flex items-center gap-1.5">
-              <Plus className="w-4 h-4" />New Job
-            </button>
-          </Link>
-        </div>
+            <h2 className="text-lg font-semibold text-white">Today's Jobs</h2>
+                <div className="flex items-center gap-2">
+                  <button className="btn-ghost text-sm border border-dark-700 flex items-center gap-1.5" onClick={() => { setLoading(true); Promise.all([api.entities.Job.filter({ scheduled_date: today }), api.entities.MaintenanceIssue.filter({ status: 'open' })]).then(([j, i]) => { setJobs(j); setIssues(i); setLoading(false); }); }}>
+                  <RefreshCw className="w-4 h-4" /> Refresh
+                  </button>
+                  <Link to="/jobs">
+                  <button className="btn-primary text-sm flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" />New Job
+                  </button>
+                  </Link>
+                </div>
+          </div>
 
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-accent" /></div>
