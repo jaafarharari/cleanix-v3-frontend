@@ -21,7 +21,7 @@ const PROVIDERS = [
 async function fetchUplistingProperties(apiKey) {
   const raw = await api.pms.uplisting(apiKey, '/properties');
   const list = Array.isArray(raw) ? raw : (raw?.data || raw?.properties || Object.values(raw).find(v => Array.isArray(v)) || []);
-  return list.map(p => p.attributes ? { id: p.id, name: p.attributes.nickname || p.attributes.name, address: p.attributes.address ? [p.attributes.address.street, p.attributes.address.city].filter(Boolean).join(', ') : '', city: p.attributes.address?.city || '' } : { id: p.id, name: p.nickname || p.name || `Property ${p.id}`, address: p.address || '', city: p.city || '' });
+  return list.map(p => p.attributes ? { id: p.id, name: p.attributes.nickname || p.attributes.name, nickname: p.attributes.nickname || '', full_name: p.attributes.name || '', address: p.attributes.address ? [p.attributes.address.street, p.attributes.address.city].filter(Boolean).join(', ') : '', city: p.attributes.address?.city || '' } : { id: p.id, name: p.nickname || p.name || `Property ${p.id}`, nickname: p.nickname || '', full_name: p.name || '', address: p.address || '', city: p.city || '' });
 }
 
 async function fetchUplistingBookings(apiKey, properties) {
@@ -151,7 +151,7 @@ export default function PMSImport() {
       const propMap = {};
       for (const p of pmsProperties) {
         if (!selectedProps.has(String(p.id))) continue;
-        let existing = existingProps.find(ep => ep.name === p.name);
+        let existing = existingProps.find(ep => ep.name === p.name || (p.nickname && ep.name === p.nickname) || (p.full_name && ep.name === p.full_name));
         if (!existing) { existing = await api.entities.Property.create({ name: p.name, address: p.name, city: p.city || '', is_active: true }); propsCreated++; }
         propMap[String(p.id)] = existing;
       }
