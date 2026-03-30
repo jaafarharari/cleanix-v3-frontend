@@ -28,7 +28,13 @@ async function fetchUplistingBookings(apiKey, properties) {
   const today = new Date().toISOString().split('T')[0];
   const future = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
   const arrays = await Promise.all(properties.map(async p => {
-    try { const raw = await api.pms.uplisting(apiKey, `/bookings/${p.id}?from=${today}&to=${future}`); return (Array.isArray(raw) ? raw : (raw?.bookings || raw?.data || [])).map(b => ({ ...b, _pms_prop_id: String(p.id) })); }
+    try { const raw = await api.pms.uplisting(apiKey, `/bookings/${p.id}?from=${today}&to=${future}`); return (Array.isArray(raw) ? raw : (raw?.bookings || raw?.data || [])).filter(b => {
+  const type = (b.type || b.booking_type || b.status || '').toLowerCase();
+  if (type === 'blocked' || type === 'unavailable' || type === 'owner' || type === 'maintenance' || type === 'closed') return false;
+  if (b.guest_name === 'Not available' || b.guest_name === 'Blocked') return false;
+  if (!b.check_out && !b.departure) return false;
+  return true;
+}).map(b => ({ ...b, _pms_prop_id: String(p.id) })); }
     catch { return []; }
   }));
   return arrays.flat();
