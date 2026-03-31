@@ -11,6 +11,9 @@ const emptyForm = { property_id: '', property_name: '', city: '', cleaner_email:
 
 export default function AdminJobs() {
   const [jobs, setJobs] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
   const [properties, setProperties] = useState([]);
   const [cleaners, setCleaners] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -21,15 +24,28 @@ export default function AdminJobs() {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    Promise.all([
-      api.entities.Job.list('-scheduled_date', 50),
+  useEffect(() => { loadJobs(0); }, []);
+
+  const loadJobs = async (pageNum) => {
+    setLoading(true);
+    const [jobResult, p, u] = await Promise.all([
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/jobs?order=-scheduled_date&limit=${PAGE_SIZE}&offset=${pageNum * PAGE_SIZE}`, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cleanix_access_token')}` },
+      }).then(r => r.json()),
       api.entities.Property.list(),
       api.entities.User.list(),
-    ]).then(([j, p, u]) => {
-      setJobs(j); setProperties(p); setCleaners(u.filter(x => x.role === 'user')); setLoading(false);
-    });
-  }, []);
+    ]);
+    if (pageNum === 0) {
+      setJobs(jobResult.data || jobResult);
+    } else {
+      setJobs(prev => [...prev, ...(jobResult.data || jobResult)]);
+    }
+    setTotalCount(jobResult.count || 0);
+    setProperties(p);
+    setCleaners(u.filter(x => x.role === 'user'));
+    setPage(pageNum);
+    setLoading(false);
+  };
 
   const handlePropertySelect = (e) => {
     const prop = properties.find(p => p.id === e.target.value);
@@ -53,6 +69,7 @@ export default function AdminJobs() {
       status_history: [{ status, timestamp: new Date().toISOString(), changed_by: 'admin' }],
     });
     setJobs(prev => [created, ...prev]);
+    setTotalCount(prev => prev + 1);
     setShowForm(false);
     setForm(emptyForm);
     if (form.cleaner_email) {
@@ -83,6 +100,7 @@ export default function AdminJobs() {
       try { await api.entities.Job.delete(id); } catch {}
     }
     setJobs(prev => prev.filter(j => !selected.has(j.id)));
+    setTotalCount(prev => prev - selected.size);
     setSelected(new Set());
     setSelectMode(false);
     setDeleting(false);
@@ -159,6 +177,13 @@ export default function AdminJobs() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {!loading && jobs.length < totalCount && (
+          <div className="flex justify-center mt-6">
+            <button className="btn-ghost border border-dark-700 text-sm flex items-center gap-1.5" onClick={() => loadJobs(page + 1)}>
+              Load more ({jobs.length} of {totalCount})
+            </button>
           </div>
         )}
       </main>
