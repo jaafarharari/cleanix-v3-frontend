@@ -2,15 +2,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClientInstance } from '@/lib/query-client';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import OfflineBanner from '@/components/OfflineBanner';
 
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 
-// Super Admin
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import OrgDetail from './pages/super-admin/OrgDetail';
 
-// Admin
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Properties from './pages/admin/Properties';
 import TeamManagement from './pages/admin/TeamManagement';
@@ -20,16 +19,15 @@ import MaintenanceIssues from './pages/admin/MaintenanceIssues';
 import LiveOpsBoard from './pages/admin/LiveOpsBoard';
 import ShiftManagement from './pages/admin/ShiftManagement';
 import PMSImport from './pages/admin/PMSImport';
-import AdminReports from './pages/admin/AdminReports';
+import Reports from './pages/admin/Reports';
 
-// Cleaner
 import CleanerHome from './pages/cleaner/CleanerHome';
 import CleanerJobDetail from './pages/cleaner/CleanerJobDetail';
 import CleanerReport from './pages/cleaner/CleanerReport';
 
 function getHomeRoute(role) {
   if (role === 'super_admin') return '/super';
-  if (role === 'admin') return '/dashboard';
+  if (role === 'admin' || role === 'tm') return '/dashboard';
   return '/cleaner';
 }
 
@@ -51,12 +49,8 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/" element={<Navigate to={home} replace />} />
-
-      {/* Super Admin */}
       <Route path="/super" element={<SuperAdminDashboard />} />
       <Route path="/super/org/:orgId" element={<OrgDetail />} />
-
-      {/* Admin */}
       <Route path="/dashboard" element={<AdminDashboard />} />
       <Route path="/properties" element={<Properties />} />
       <Route path="/team" element={<TeamManagement />} />
@@ -66,16 +60,11 @@ const AuthenticatedApp = () => {
       <Route path="/live-ops" element={<LiveOpsBoard />} />
       <Route path="/shifts" element={<ShiftManagement />} />
       <Route path="/pms" element={<PMSImport />} />
-      <Route path="/reports" element={<AdminReports />} />
-
-      {/* Cleaner */}
+      <Route path="/reports" element={<Reports />} />
       <Route path="/cleaner" element={<CleanerHome />} />
       <Route path="/cleaner/job" element={<CleanerJobDetail />} />
       <Route path="/cleaner/report" element={<CleanerReport />} />
-
-      {/* Shared */}
       <Route path="/change-password" element={<ChangePassword />} />
-
       <Route path="*" element={<Navigate to={home} replace />} />
     </Routes>
   );
@@ -86,6 +75,7 @@ export default function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
+          <OfflineBanner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/*" element={<AuthenticatedApp />} />
