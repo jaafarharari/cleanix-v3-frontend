@@ -30,7 +30,6 @@ function getHomeRoute(role) {
   if (role === 'admin' || role === 'tm') return '/dashboard';
   return '/cleaner';
 }
-
 const AuthenticatedApp = () => {
   const { isLoadingAuth, user, isAuthenticated } = useAuth();
 
