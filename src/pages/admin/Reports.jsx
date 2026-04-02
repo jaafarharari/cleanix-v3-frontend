@@ -31,7 +31,10 @@ export default function Reports() {
   };
 
   // ── Hours tab helpers ────────────────────────────────────
-  const getCompletedJobs = (email) => allJobs.filter(j => j.cleaner_email === email && j.status === 'complete' && j.clock_in_time && j.clock_out_time);
+  // All completed jobs regardless of clock data — used for job counts
+  const getCompletedJobs = (email) => allJobs.filter(j => j.cleaner_email === email && j.status === 'complete');
+  // Only jobs with clock times — used for hour calculations
+  const getTimedJobs = (email) => allJobs.filter(j => j.cleaner_email === email && j.status === 'complete' && j.clock_in_time && j.clock_out_time);
 
   const getJobDuration = (job) => {
     if (!job.clock_in_time || !job.clock_out_time) return 0;
@@ -44,7 +47,7 @@ export default function Reports() {
       .reduce((acc, j) => acc + getJobDuration(j), 0);
   };
 
-  const getTotalHours = (email) => getCompletedJobs(email).reduce((acc, j) => acc + getJobDuration(j), 0);
+  const getTotalHours = (email) => getTimedJobs(email).reduce((acc, j) => acc + getJobDuration(j), 0);
 
   // ── Gap time helpers ─────────────────────────────────────
   const getGapsForDay = (email, day) => {
@@ -182,6 +185,28 @@ export default function Reports() {
             <ArrowRight className="w-3.5 h-3.5 inline mr-1.5" />Time between jobs
           </button>
         </div>
+
+        {/* Summary stats */}
+        {!loading && (
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="card p-4">
+              <p className="text-xs text-dark-500 mb-1">Total Cleaners</p>
+              <p className="text-2xl font-bold text-white">{cleaners.length}</p>
+            </div>
+            <div className="card p-4">
+              <p className="text-xs text-dark-500 mb-1">Jobs Completed</p>
+              <p className="text-2xl font-bold text-success">
+                {cleaners.reduce((acc, c) => acc + getCompletedJobs(c.email).length, 0)}
+              </p>
+            </div>
+            <div className="card p-4">
+              <p className="text-xs text-dark-500 mb-1">Total Hours</p>
+              <p className="text-2xl font-bold text-accent-light">
+                {formatMins(cleaners.reduce((acc, c) => acc + getTotalHours(c.email), 0))}
+              </p>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-accent" /></div>
