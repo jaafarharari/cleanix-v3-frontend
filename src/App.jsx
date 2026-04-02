@@ -29,7 +29,7 @@ function getHomeRoute(role) {
   if (role === 'super_admin') return '/super';
   if (role === 'admin' || role === 'tm') return '/dashboard';
   return '/cleaner';
-}
+} 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, user, isAuthenticated } = useAuth();
 
