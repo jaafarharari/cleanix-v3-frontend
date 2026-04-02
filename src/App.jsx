@@ -2,8 +2,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClientInstance } from '@/lib/query-client';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import OfflineBanner from '@/components/OfflineBanner';
-
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 
@@ -74,7 +72,6 @@ export default function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <OfflineBanner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/*" element={<AuthenticatedApp />} />
