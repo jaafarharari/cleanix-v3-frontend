@@ -5,16 +5,16 @@ import { useAuth } from '@/lib/AuthContext';
 import { LayoutDashboard, Briefcase, Home, Users, Activity, AlertTriangle, Download, Calendar, LogOut, Sparkles, Bell, BarChart3 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/live-ops', label: 'Live Ops', icon: Activity },
-  { path: '/jobs', label: 'Jobs', icon: Briefcase },
-  { path: '/properties', label: 'Properties', icon: Home },
-  { path: '/team', label: 'Team', icon: Users },
-  { path: '/shifts', label: 'Shifts', icon: Calendar },
-  { path: '/issues', label: 'Issues', icon: AlertTriangle },
-  { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/pms', label: 'PMS', icon: Download },
+const allNavItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'tm'] },
+  { path: '/live-ops', label: 'Live Ops', icon: Activity, roles: ['admin'] },
+  { path: '/jobs', label: 'Jobs', icon: Briefcase, roles: ['admin', 'tm'] },
+  { path: '/properties', label: 'Properties', icon: Home, roles: ['admin'] },
+  { path: '/team', label: 'Team', icon: Users, roles: ['admin'] },
+  { path: '/shifts', label: 'Shifts', icon: Calendar, roles: ['admin'] },
+  { path: '/issues', label: 'Issues', icon: AlertTriangle, roles: ['admin', 'tm'] },
+  { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'tm'] },
+  { path: '/pms', label: 'PMS', icon: Download, roles: ['admin'] },
 ];
 
 export default function AdminNav() {
@@ -23,12 +23,16 @@ export default function AdminNav() {
   const [openIssues, setOpenIssues] = useState(0);
   const { isSubscribed, isSupported, subscribe } = usePushNotifications();
 
+  const userRole = user?.role || 'user';
+  const navItems = allNavItems.filter(item => item.roles.includes(userRole));
+  const roleBadge = userRole === 'tm' ? 'Team Manager' : 'Admin';
+
   useEffect(() => {
     api.entities.MaintenanceIssue.filter({ status: 'open' }).then(d => setOpenIssues(d.length)).catch(() => {});
   }, []);
 
   return (
-    <header className="bg-dark-800/80 backdrop-blur-xl border-b border-dark-700/50 px-4 py-3 sticky top-0 z-40">
+    <header className="bg-dark-800/80 backdrop-blur-xl border-b border-dark-700/50 px-4 py-3 sticky top-0 z-40 pt-[max(0.75rem,env(safe-area-inset-top))]">
       <div className="max-w-7xl mx-auto flex items-center gap-4 overflow-x-auto">
         <Link to="/dashboard" className="flex items-center gap-2.5 flex-shrink-0 mr-3">
           <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shadow-lg shadow-accent/20">
@@ -36,7 +40,7 @@ export default function AdminNav() {
           </div>
           <span className="font-bold text-white text-sm">CleanOps</span>
           {user?.organisation && <span className="text-xs text-dark-500 hidden md:inline">· {user.organisation.name}</span>}
-          <span className="badge bg-accent/15 text-accent-light border border-accent/20 text-[10px]">Admin</span>
+          <span className={`badge text-[10px] ${userRole === 'tm' ? 'bg-teal-500/15 text-teal-400 border border-teal-500/20' : 'bg-accent/15 text-accent-light border border-accent/20'}`}>{roleBadge}</span>
         </Link>
         <nav className="flex items-center gap-1 flex-nowrap">
           {navItems.map(({ path, label, icon: Icon }) => {
