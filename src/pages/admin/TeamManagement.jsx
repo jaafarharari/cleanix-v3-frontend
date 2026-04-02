@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
-import { Users, UserPlus, Mail, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Mail, Loader2, Shield } from 'lucide-react';
 import AdminNav from '@/components/AdminNav';
 
 export default function TeamManagement() {
-  const [cleaners, setCleaners] = useState([]);
+  const [members, setMembers] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState('user');
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
 
   useEffect(() => {
     Promise.all([api.entities.User.list(), api.entities.Job.filter({ status: 'complete' })]).then(([users, jobData]) => {
-      setCleaners(users.filter(u => u.role === 'user'));
+      setMembers(users.filter(u => u.role === 'user' || u.role === 'tm'));
       setJobs(jobData);
       setLoading(false);
     });
@@ -33,16 +34,24 @@ export default function TeamManagement() {
     if (!inviteEmail || !inviteName) return;
     setInviting(true);
     try {
-      const result = await api.users.inviteUser(inviteEmail, 'user', inviteName);
-      setInviteResult({ type: 'success', message: `Invited! Temp password: ${result.temp_password}` });
+      const result = await api.users.inviteUser(inviteEmail, inviteRole, inviteName);
+      const roleLabel = inviteRole === 'tm' ? 'Team Manager' : 'Cleaner';
+      setInviteResult({ type: 'success', message: `${roleLabel} invited! Temp password: ${result.temp_password}` });
       setInviteEmail('');
       setInviteName('');
+      setInviteRole('user');
+      // Refresh list
+      const users = await api.entities.User.list();
+      setMembers(users.filter(u => u.role === 'user' || u.role === 'tm'));
     } catch (e) {
       setInviteResult({ type: 'error', message: e.message || 'Invite failed' });
     }
     setInviting(false);
-    setTimeout(() => setInviteResult(null), 10000);
+    setTimeout(() => setInviteResult(null), 15000);
   };
+
+  const cleaners = members.filter(m => m.role === 'user');
+  const teamManagers = members.filter(m => m.role === 'tm');
 
   return (
     <div className="min-h-screen bg-dark-900">
@@ -53,19 +62,34 @@ export default function TeamManagement() {
           <h1 className="text-xl font-bold text-white">Team</h1>
         </div>
 
+        {/* Invite form */}
         <div className="card p-5">
           <p className="font-semibold text-white mb-3 flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-accent" /> Invite Cleaner
+            <UserPlus className="w-4 h-4 text-accent" /> Invite team member
           </p>
           <div className="space-y-3">
             <div className="flex gap-3">
               <input type="text" className="input-dark flex-1" placeholder="Full name" value={inviteName}
                 onChange={e => setInviteName(e.target.value)} />
-              <input type="email" className="input-dark flex-1" placeholder="cleaner@email.com" value={inviteEmail}
+              <input type="email" className="input-dark flex-1" placeholder="email@example.com" value={inviteEmail}
                 onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleInvite()} />
             </div>
+            <div className="flex gap-2">
+              <button onClick={() => setInviteRole('user')}
+                className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                  inviteRole === 'user' ? 'bg-accent/15 text-accent-light border-accent/30' : 'bg-dark-800 text-dark-400 border-dark-700 hover:border-dark-600'
+                }`}>
+                Cleaner
+              </button>
+              <button onClick={() => setInviteRole('tm')}
+                className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                  inviteRole === 'tm' ? 'bg-teal-500/15 text-teal-400 border-teal-500/30' : 'bg-dark-800 text-dark-400 border-dark-700 hover:border-dark-600'
+                }`}>
+                Team Manager
+              </button>
+            </div>
             <button className="btn-primary w-full" onClick={handleInvite} disabled={!inviteEmail || !inviteName || inviting}>
-              {inviting ? 'Sending...' : 'Invite'}
+              {inviting ? 'Sending...' : `Invite as ${inviteRole === 'tm' ? 'Team Manager' : 'Cleaner'}`}
             </button>
           </div>
           {inviteResult && (
@@ -75,6 +99,30 @@ export default function TeamManagement() {
           )}
         </div>
 
+        {/* Team Managers */}
+        {teamManagers.length > 0 && (
+          <div>
+            <h2 className="font-semibold text-dark-300 mb-3 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-teal-400" /> Team Managers ({teamManagers.length})
+            </h2>
+            <div className="space-y-3">
+              {teamManagers.map(tm => (
+                <div key={tm.id} className="card p-4 flex items-center gap-4 animate-slide-up">
+                  <div className="w-10 h-10 rounded-full bg-teal-500/15 flex items-center justify-center text-teal-400 font-bold text-lg flex-shrink-0">
+                    {tm.full_name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{tm.full_name}</p>
+                    <p className="text-sm text-dark-400 flex items-center gap-1"><Mail className="w-3 h-3" /> {tm.email}</p>
+                  </div>
+                  <span className="badge bg-teal-500/15 text-teal-400 border border-teal-500/20">TM</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cleaners */}
         <div>
           <h2 className="font-semibold text-dark-300 mb-3">Cleaners ({cleaners.length})</h2>
           {loading ? (
