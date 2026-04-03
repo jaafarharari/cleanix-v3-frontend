@@ -2,11 +2,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClientInstance } from '@/lib/query-client';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import OfflineBanner from '@/components/OfflineBanner';
+
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import OrgDetail from './pages/super-admin/OrgDetail';
+import Invoices from './pages/super-admin/Invoices';
 
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Properties from './pages/admin/Properties';
@@ -27,7 +30,7 @@ function getHomeRoute(role) {
   if (role === 'super_admin') return '/super';
   if (role === 'admin' || role === 'tm') return '/dashboard';
   return '/cleaner';
-} 
+}
 const AuthenticatedApp = () => {
   const { isLoadingAuth, user, isAuthenticated } = useAuth();
 
@@ -48,6 +51,7 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Navigate to={home} replace />} />
       <Route path="/super" element={<SuperAdminDashboard />} />
       <Route path="/super/org/:orgId" element={<OrgDetail />} />
+      <Route path="/super/invoices" element={<Invoices />} />
       <Route path="/dashboard" element={<AdminDashboard />} />
       <Route path="/properties" element={<Properties />} />
       <Route path="/team" element={<TeamManagement />} />
@@ -72,6 +76,7 @@ export default function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
+          <OfflineBanner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/*" element={<AuthenticatedApp />} />
