@@ -1,23 +1,86 @@
 import { useState, useEffect } from 'react';
 import api from '@/api/apiClient';
 
+// Detect if running in Capacitor native app
+const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform();
+
 export function usePushNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
-    setIsSupported('serviceWorker' in navigator && 'PushManager' in window);
-    checkSubscription();
+    if (isNative) {
+      setupNativePush();
+    } else {
+      setIsSupported('serviceWorker' in navigator && 'PushManager' in window);
+      checkWebSubscription();
+    }
   }, []);
 
-  const checkSubscription = async () => {
-    if (!('serviceWorker' in navigator)) return;
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    setIsSubscribed(!!sub);
+  // ── Native (Capacitor) push ──────────────────────────────
+  const setupNativePush = async () => {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      setIsSupported(true);
+
+      const permResult = await PushNotifications.checkPermissions();
+      if (permResult.receive === 'granted') {
+        setIsSubscribed(true);
+      }
+
+      PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.log('Push received:', notification);
+      });
+
+      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+        console.log('Push action:', notification);
+        const url = notification.notification?.data?.url;
+        if (url) window.location.href = url;
+      });
+    } catch (e) {
+      console.log('Native push not available:', e);
+      // Fall back to web push
+      setIsSupported('serviceWorker' in navigator && 'PushManager' in window);
+      checkWebSubscription();
+    }
   };
 
-  const subscribe = async () => {
+  const subscribeNative = async () => {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      const perm = await PushNotifications.requestPermissions();
+      if (perm.receive !== 'granted') return false;
+
+      await PushNotifications.register();
+
+      // Listen for registration token
+      PushNotifications.addListener('registration', async (token) => {
+        console.log('Push registration token:', token.value);
+        // Save token to backend for FCM/APNs
+        try {
+          await api.notifications.subscribe({ type: 'native', token: token.value });
+        } catch {}
+      });
+
+      setIsSubscribed(true);
+      return true;
+    } catch (e) {
+      console.error('Native push subscribe failed:', e);
+      return false;
+    }
+  };
+
+  // ── Web push ─────────────────────────────────────────────
+  const checkWebSubscription = async () => {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setIsSubscribed(!!sub);
+    } catch {}
+  };
+
+  const subscribeWeb = async () => {
     try {
       const reg = await navigator.serviceWorker.ready;
       const { publicKey } = await api.notifications.getVapidKey();
@@ -31,12 +94,12 @@ export function usePushNotifications() {
       setIsSubscribed(true);
       return true;
     } catch (e) {
-      console.error('Push subscribe failed:', e);
+      console.error('Web push subscribe failed:', e);
       return false;
     }
   };
 
-  const unsubscribe = async () => {
+  const unsubscribeWeb = async () => {
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
@@ -45,10 +108,14 @@ export function usePushNotifications() {
       setIsSubscribed(false);
       return true;
     } catch (e) {
-      console.error('Push unsubscribe failed:', e);
+      console.error('Unsubscribe failed:', e);
       return false;
     }
   };
+
+  // ── Public API ───────────────────────────────────────────
+  const subscribe = isNative ? subscribeNative : subscribeWeb;
+  const unsubscribe = unsubscribeWeb;
 
   return { isSubscribed, isSupported, subscribe, unsubscribe };
 }

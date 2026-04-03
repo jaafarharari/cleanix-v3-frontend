@@ -196,7 +196,7 @@ export default function CleanerJobDetail() {
   const hasUncheckedCheckout = checkoutChecklist.some(t => !t.completed);
 
   return (
-    <div className="min-h-screen bg-dark-900 flex flex-col pb-20">
+    <div className="min-h-screen bg-dark-900 flex flex-col pb-24">
       <header className="bg-dark-800/80 backdrop-blur-xl border-b border-dark-700/50 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
         <button className="btn-ghost p-2" onClick={() => navigate('/cleaner')}><ArrowLeft className="w-4 h-4" /></button>
         <div className="flex-1">
@@ -363,7 +363,7 @@ export default function CleanerJobDetail() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-dark-800/90 backdrop-blur-xl border-t border-dark-700/50 px-4 py-2 z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-dark-800/90 backdrop-blur-xl border-t border-dark-700/50 px-4 pt-2 pb-8 z-40">
         <div className="max-w-lg mx-auto flex items-center justify-around">
           <Link to="/cleaner" className="flex flex-col items-center gap-1 py-1 text-dark-400"><Home className="w-5 h-5" /><span className="text-[10px] font-medium">Jobs</span></Link>
           <Link to="/cleaner/report" className="flex flex-col items-center gap-1 py-1 text-dark-400"><Flag className="w-5 h-5" /><span className="text-[10px] font-medium">Report</span></Link>

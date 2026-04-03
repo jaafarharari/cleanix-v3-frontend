@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { cacheGet, cacheSet, addToQueue, getQueue, removeFromQueue, isOnline } from '@/lib/offlineStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -25,6 +26,27 @@ async function apiFetch(path, options = {}) {
   return json;
 }
 
+// ── Offline-aware fetch ────────────────────────────────────
+async function cachedFetch(cacheKey, path, options = {}) {
+  if (isOnline()) {
+    try {
+      const data = await apiFetch(path, options);
+      cacheSet(cacheKey, data);
+      return data;
+    } catch (e) {
+      // If fetch fails even though we think we're online, try cache
+      const cached = cacheGet(cacheKey);
+      if (cached) return cached.data;
+      throw e;
+    }
+  } else {
+    const cached = cacheGet(cacheKey);
+    if (cached) return cached.data;
+    throw { status: 0, message: 'You are offline and no cached data is available' };
+  }
+}
+
+// ── Entity client with offline support ─────────────────────
 const entityMap = {
   Job: '/api/jobs',
   Property: '/api/properties',
@@ -36,26 +58,81 @@ const entityMap = {
 function createEntityClient(entityName) {
   const basePath = entityMap[entityName];
   if (!basePath) throw new Error(`Unknown entity: ${entityName}`);
+
   return {
     async list(orderBy, limit) {
       const params = new URLSearchParams();
       if (orderBy) params.set('order', orderBy);
       if (limit) params.set('limit', String(limit));
       const qs = params.toString();
-      return apiFetch(`${basePath}${qs ? '?' + qs : ''}`);
+      const path = `${basePath}${qs ? '?' + qs : ''}`;
+      return cachedFetch(`list_${entityName}_${qs}`, path);
     },
+
     async filter(filters) {
-      return apiFetch(`${basePath}/filter`, { method: 'POST', body: JSON.stringify(filters) });
+      const cacheKey = `filter_${entityName}_${JSON.stringify(filters)}`;
+      if (isOnline()) {
+        try {
+          const data = await apiFetch(`${basePath}/filter`, { method: 'POST', body: JSON.stringify(filters) });
+          cacheSet(cacheKey, data);
+          return data;
+        } catch (e) {
+          const cached = cacheGet(cacheKey);
+          if (cached) return cached.data;
+          throw e;
+        }
+      } else {
+        const cached = cacheGet(cacheKey);
+        if (cached) return cached.data;
+        // Try to filter from the full list cache
+        const listCache = cacheGet(`list_${entityName}_`);
+        if (listCache) {
+          return listCache.data.filter(item => {
+            return Object.entries(filters).every(([key, val]) => item[key] === val);
+          });
+        }
+        throw { status: 0, message: 'Offline - no cached data' };
+      }
     },
+
     async create(data) {
-      return apiFetch(basePath, { method: 'POST', body: JSON.stringify(data) });
+      if (isOnline()) {
+        try {
+          return await apiFetch(basePath, { method: 'POST', body: JSON.stringify(data) });
+        } catch (e) {
+          // Queue for later
+          addToQueue({ type: 'create', entity: entityName, path: basePath, data });
+          return { ...data, id: 'pending_' + Date.now(), _offline: true };
+        }
+      } else {
+        addToQueue({ type: 'create', entity: entityName, path: basePath, data });
+        return { ...data, id: 'pending_' + Date.now(), _offline: true };
+      }
     },
+
     async update(id, data) {
-      return apiFetch(`${basePath}/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+      if (isOnline()) {
+        try {
+          return await apiFetch(`${basePath}/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        } catch (e) {
+          addToQueue({ type: 'update', entity: entityName, path: `${basePath}/${id}`, data });
+          return { ...data, id, _offline: true };
+        }
+      } else {
+        addToQueue({ type: 'update', entity: entityName, path: `${basePath}/${id}`, data });
+        return { ...data, id, _offline: true };
+      }
     },
+
     async delete(id) {
-      return apiFetch(`${basePath}/${id}`, { method: 'DELETE' });
+      if (isOnline()) {
+        return await apiFetch(`${basePath}/${id}`, { method: 'DELETE' });
+      } else {
+        addToQueue({ type: 'delete', entity: entityName, path: `${basePath}/${id}` });
+        return { ok: true, _offline: true };
+      }
     },
+
     subscribe(callback) {
       let lastData = null;
       const poll = async () => {
@@ -71,7 +148,7 @@ function createEntityClient(entityName) {
             for (const old of lastData) { if (!newIds.has(old.id)) callback({ type: 'delete', id: old.id }); }
           }
           lastData = data;
-        } catch (e) { console.error('Poll error:', e); }
+        } catch {}
       };
       poll();
       const interval = setInterval(poll, 10000);
@@ -82,8 +159,11 @@ function createEntityClient(entityName) {
 
 const entitiesProxy = new Proxy({}, { get(_, name) { return createEntityClient(name); } });
 
+// ── Auth ───────────────────────────────────────────────────
 const auth = {
-  async me() { return apiFetch('/api/auth/me'); },
+  async me() {
+    return cachedFetch('auth_me', '/api/auth/me');
+  },
   logout() { clearToken(); window.location.href = '/login'; },
 };
 
@@ -117,6 +197,7 @@ const functions = {
 const integrations = {
   Core: {
     async UploadFile({ file }) {
+      if (!isOnline()) throw new Error('Cannot upload files while offline');
       const formData = new FormData();
       formData.append('file', file);
       const res = await fetch(`${API_URL}/api/upload`, {
@@ -138,5 +219,38 @@ const notifications = {
   async send(emails, title, body, url) { return apiFetch('/api/notifications/send', { method: 'POST', body: JSON.stringify({ emails, title, body, url }) }); },
 };
 
-const api = { entities: entitiesProxy, auth, users, pms, functions, integrations, notifications };
+// ── Sync queue ─────────────────────────────────────────────
+async function syncOfflineQueue() {
+  if (!isOnline()) return;
+  const queue = getQueue();
+  if (queue.length === 0) return;
+
+  console.log(`[Sync] Processing ${queue.length} offline action(s)`);
+
+  for (const action of queue) {
+    try {
+      if (action.type === 'create') {
+        await apiFetch(action.path, { method: 'POST', body: JSON.stringify(action.data) });
+      } else if (action.type === 'update') {
+        await apiFetch(action.path, { method: 'PUT', body: JSON.stringify(action.data) });
+      } else if (action.type === 'delete') {
+        await apiFetch(action.path, { method: 'DELETE' });
+      }
+      removeFromQueue(action.id);
+      console.log(`[Sync] Completed: ${action.type} ${action.entity}`);
+    } catch (e) {
+      console.error(`[Sync] Failed: ${action.type} ${action.entity}:`, e.message);
+    }
+  }
+}
+
+// Auto-sync when coming back online
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.log('[Sync] Back online — syncing queue...');
+    syncOfflineQueue();
+  });
+}
+
+const api = { entities: entitiesProxy, auth, users, pms, functions, integrations, notifications, syncOfflineQueue };
 export default api;
