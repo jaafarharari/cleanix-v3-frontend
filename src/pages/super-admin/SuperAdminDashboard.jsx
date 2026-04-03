@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { Link } from 'react-router-dom';
-import { Building2, Users, Plus, Loader2, Shield, Sparkles, LogOut } from 'lucide-react';
+import { Building2, Users, Plus, Loader2, Shield, Sparkles, LogOut, FileText } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -52,6 +52,18 @@ export default function SuperAdminDashboard() {
             <span className="font-bold text-white text-sm">CleanOps</span>
             <span className="badge bg-purple-500/15 text-purple-400 border border-purple-500/20 text-[10px]">Super Admin</span>
           </div>
+          <nav className="flex items-center gap-1 ml-4">
+            <Link to="/super">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-accent/15 text-accent-light">
+                <Building2 className="w-3.5 h-3.5" /> Organisations
+              </button>
+            </Link>
+            <Link to="/super/invoices">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-dark-400 hover:text-dark-200 hover:bg-dark-700/50">
+                <FileText className="w-3.5 h-3.5" /> Invoices
+              </button>
+            </Link>
+          </nav>
           <div className="ml-auto">
             <button onClick={logout} className="btn-ghost p-2"><LogOut className="w-4 h-4" /></button>
           </div>
